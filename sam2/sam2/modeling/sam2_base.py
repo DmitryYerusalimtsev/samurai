@@ -1,6 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
-
+import numpy as np
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
@@ -469,7 +469,7 @@ class SAM2Base(torch.nn.Module):
                         y_max, x_max = non_zero_indices.max(dim=0).values
                         high_res_multibboxes.append([x_min.item(), y_min.item(), x_max.item(), y_max.item()])
                 # compute the IoU between the predicted bbox and the high_res_multibboxes
-                kf_ious = torch.tensor(self.kf.compute_iou(self.kf_mean[:4], high_res_multibboxes), device=device)
+                kf_ious = torch.tensor(self.kf.compute_iou(self.kf_mean[:4].astype(np.float32), high_res_multibboxes), device=device)
                 # weighted iou
                 weighted_ious = self.kf_score_weight * kf_ious + (1 - self.kf_score_weight) * ious
                 best_iou_inds = torch.argmax(weighted_ious, dim=-1)

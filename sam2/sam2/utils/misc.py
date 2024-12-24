@@ -286,26 +286,54 @@ def load_video_frames_from_video_file(
     compute_device=torch.device("cuda"),
 ):
     """Load the video frames from a video file."""
-    import decord
+    # import decord
+    #
+    # img_mean = torch.tensor(img_mean, dtype=torch.float32)[:, None, None]
+    # img_std = torch.tensor(img_std, dtype=torch.float32)[:, None, None]
+    # # Get the original video height and width
+    # decord.bridge.set_bridge("torch")
+    # video_height, video_width, _ = decord.VideoReader(video_path).next().shape
+    # # Iterate over all frames in the video
+    # images = []
+    # for frame in decord.VideoReader(video_path, width=image_size, height=image_size):
+    #     images.append(frame.permute(2, 0, 1))
+    import cv2
 
-    img_mean = torch.tensor(img_mean, dtype=torch.float32)[:, None, None]
-    img_std = torch.tensor(img_std, dtype=torch.float32)[:, None, None]
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Unable to open video file: {video_path}")
+
     # Get the original video height and width
-    decord.bridge.set_bridge("torch")
-    video_height, video_width, _ = decord.VideoReader(video_path).next().shape
-    # Iterate over all frames in the video
+    video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
     images = []
-    for frame in decord.VideoReader(video_path, width=image_size, height=image_size):
-        images.append(frame.permute(2, 0, 1))
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break  # End of video
+
+        # Resize the frame to the specified size
+        resized_frame = cv2.resize(frame, (image_size, image_size))
+
+        # Convert frame from HWC (Height, Width, Channels) to CHW format and BGR to RGB
+        tensor_frame = torch.from_numpy(resized_frame).permute(2, 0, 1)
+        images.append(tensor_frame)
+
+    cap.release()
 
     images = torch.stack(images, dim=0).float() / 255.0
     if not offload_video_to_cpu:
         images = images.to(compute_device)
         img_mean = img_mean.to(compute_device)
         img_std = img_std.to(compute_device)
+
     # normalize by mean and std
-    images -= img_mean
-    images /= img_std
+    # images -= img_mean
+    # images /= img_std
+
+    images -= torch.tensor(img_mean).view(3, 1, 1)
+    images /= torch.tensor(img_std).view(3, 1, 1)
     return images, video_height, video_width
 
 
